@@ -9,7 +9,6 @@ import jade.domain.FIPAException;
 import jade.lang.acl.ACLMessage;
 import jade.lang.acl.MessageTemplate;
 
-import java.util.Random;
 import java.util.concurrent.ThreadLocalRandom;
 
 /**
@@ -38,7 +37,7 @@ public class BidderAgent extends Agent {
         } catch (FIPAException e) {
             e.printStackTrace();
         }
-        System.out.println(getAID().getName() + " ready to buy some stuff. My wallet is " + wallet);
+        System.out.println(getAID().getName() + " ready to buy some stuff. My wallet is $" + wallet);
     }
 
     private void setRandomWallet() {
@@ -72,12 +71,17 @@ public class BidderAgent extends Agent {
                 parseContent(msg.getContent());
 
                 ACLMessage reply = msg.createReply();
+                int bid;
 
-                // Place a bid 5 to 10% higher than the received value
-                int bid = (int) (itemPrice + itemPrice * ((float)ThreadLocalRandom.current().nextInt(5, 10) / 10));
+                if (itemPrice < wallet / 4) {
+                    // Place a bid 5 to 10% higher than the received value
+                    bid = (int) (itemPrice + itemPrice * ((float) ThreadLocalRandom.current().nextInt(5, 10) / 10));
 
-                reply.setPerformative(ACLMessage.PROPOSE);
-                reply.setContent(String.valueOf(bid));
+                    reply.setPerformative(ACLMessage.PROPOSE);
+                    reply.setContent(String.valueOf(bid));
+                } else {
+                    reply.setPerformative(ACLMessage.REFUSE);
+                }
 
                 myAgent.send(reply);
             } else {
