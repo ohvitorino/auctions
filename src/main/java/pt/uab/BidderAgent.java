@@ -71,6 +71,15 @@ public class BidderAgent extends Agent {
             if (msg != null) {
                 parseContent(msg.getContent());
 
+                ACLMessage reply = msg.createReply();
+
+                // Place a bid 5 to 10% higher than the received value
+                int bid = (int) (itemPrice + itemPrice * ((float)ThreadLocalRandom.current().nextInt(5, 10) / 10));
+
+                reply.setPerformative(ACLMessage.PROPOSE);
+                reply.setContent(String.valueOf(bid));
+
+                myAgent.send(reply);
             } else {
                 block();
             }

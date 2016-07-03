@@ -12,6 +12,8 @@ import jade.lang.acl.ACLMessage;
 import jade.lang.acl.MessageTemplate;
 
 import java.util.HashMap;
+import java.util.Iterator;
+import java.util.Map;
 
 /**
  * Created by Bruno Vitorino on 03/07/16.
@@ -37,7 +39,7 @@ public class AuctionerAgent extends Agent {
 
             // Add behaviour to get the buyers bids
 
-            addBehaviour(new TickerBehaviour(this, 3000) {
+            addBehaviour(new TickerBehaviour(this, 30000) {
                 @Override
                 protected void onTick() {
                     // Get all the BidderAgents
@@ -70,14 +72,19 @@ public class AuctionerAgent extends Agent {
 
     private class AuctionPerformer extends Behaviour {
         private int step = 0;
-        private HashMap<AID, Integer> expectedProposals = new HashMap();
+        private Map<AID, Integer> expectedProposals = new HashMap<>();
 
         private MessageTemplate mt;
+        private AID highestBidder = null;
+        private int highestBid = 0;
 
+        @Override
         public void action() {
+//            System.out.println("Step: " + step);
             switch (step) {
                 case 0:
-                    // Send the item being sold and the start bidding price
+
+                    // Send the item being sold and the starting bidding price
 
                     ACLMessage cfp = new ACLMessage(ACLMessage.CFP);
 
@@ -99,7 +106,7 @@ public class AuctionerAgent extends Agent {
                     step = 1;
                     break;
                 case 1:
-                    ACLMessage reply = myAgent.receive();
+                    ACLMessage reply = myAgent.receive(mt);
 
                     if (reply != null) {
 
@@ -107,6 +114,9 @@ public class AuctionerAgent extends Agent {
                             case ACLMessage.PROPOSE:
                                 // This is a bid
                                 expectedProposals.put(reply.getSender(), Integer.parseInt(reply.getContent()));
+
+                                System.out.println(reply.getSender().getName() + " bids " + reply.getContent());
+
                                 break;
                             case ACLMessage.REFUSE:
                                 // The agent is not interested in the item
@@ -123,11 +133,62 @@ public class AuctionerAgent extends Agent {
                     }
                     break;
                 case 2:
+
+                    // Send an CFP to the agents with lower bids
+
+                    Iterator<Map.Entry<AID, Integer>> iter = expectedProposals.entrySet().iterator();
+                    while (iter.hasNext()) {
+                        Map.Entry<AID, Integer> item = iter.next();
+                        if (highestBid < item.getValue()) {
+                            highestBidder = item.getKey();
+                            highestBid = item.getValue();
+                        }
+                    }
+
+                    if (highestBidder != null) {
+                        System.out.println(highestBid + " for " + highestBidder.getName());
+                    } else {
+                        System.out.println("Only received invalid bids!");
+                    }
+
+                    // Send accept proposal to the highest bidder
+
+                    ACLMessage accept = new ACLMessage(ACLMessage.ACCEPT_PROPOSAL);
+                    accept.addReceiver(highestBidder);
+                    accept.setContent(itemName + "||" + highestBid);
+                    accept.setConversationId("auction");
+                    accept.setReplyWith("bid-ok" + System.currentTimeMillis());
+
+                    myAgent.send(accept);
+
+                    // Reject the rest of the proposals
+
+                    for (AID aid : expectedProposals.keySet()) {
+                        if (aid != highestBidder) {
+                            ACLMessage reject = new ACLMessage(ACLMessage.REJECT_PROPOSAL);
+                            reject.addReceiver(highestBidder);
+                            reject.setContent(itemName + "||" + expectedProposals.get(aid));
+                            reject.setConversationId("auction");
+                            reject.setReplyWith("bid-reject" + System.currentTimeMillis());
+
+                            myAgent.send(reject);
+                        }
+                    }
+
+                    step = 3;
+                    break;
+                case 3:
+
+                    System.out.println("Do I hear " + (int) highestBid * 1.5 + "??");
+
+                    step = 4;
+                    break;
             }
         }
 
+        @Override
         public boolean done() {
-            return false;
+            return (step == 4);
         }
     }
 }
