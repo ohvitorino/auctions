@@ -180,8 +180,7 @@ public class AuctionerAgent extends Agent {
                     break;
                 case 2:
 
-                    // Send an CFP to the agents with lower bids
-
+                    // Checks bids and save the highest one
                     Iterator<Map.Entry<AID, Integer>> iter = receivedProposals.entrySet().iterator();
                     while (iter.hasNext()) {
                         Map.Entry<AID, Integer> item = iter.next();
